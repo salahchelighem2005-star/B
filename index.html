@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f4a5a">
+<title>قارئ هادئ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* التصميم: صفحة قراءة بخط نسخ كبير على خلفية باردة هادئة، الجملة الحالية مظللة، ونقطة البداية بخط سفلي، وشريط تحكم ثابت أسفل الشاشة */
+:root{
+  --bg:#f1f4f5;
+  --surface:#ffffff;
+  --fg:#17252d;
+  --muted:#5b6d76;
+  --line:#d6dee1;
+  --accent:#2f5d73;
+  --accent-fg:#ffffff;
+  --now:#d8ecd6;
+  --danger:#b3261e;
+  --read-size:22px;
+  --font-read:"Amiri","Traditional Arabic",serif;
+  --font-ui:"Tajawal",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1a1f;--surface:#162329;--fg:#e4eef1;--muted:#93a9b2;--line:#2a3d45;
+    --accent:#7fc0dc;--accent-fg:#08202b;--now:#27452f;--danger:#ff8a80;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1a1f;--surface:#162329;--fg:#e4eef1;--muted:#93a9b2;--line:#2a3d45;
+  --accent:#7fc0dc;--accent-fg:#08202b;--now:#27452f;--danger:#ff8a80;color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:16px;line-height:1.6;
+  padding-block:max(16px,env(safe-area-inset-top,0px)) calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  min-height:100vh;
+}
+body.with-bar{padding-bottom:calc(228px + env(safe-area-inset-bottom,0px))}
+main{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font-size:1.5rem;margin:6px 0 0;font-weight:700;text-wrap:balance}
+.lead{margin:0;color:var(--muted);font-size:.95rem}
+button,input,select,textarea{font:inherit;color:inherit}
+button{
+  font-weight:700;border-radius:10px;border:1.5px solid var(--line);background:var(--surface);
+  padding:0 16px;min-height:48px;cursor:pointer;
+}
+button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button:disabled{opacity:.5;cursor:default}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{min-width:0}
+.grow{flex:1}
+
+/* الإعدادات */
+details{background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:0 14px}
+summary{min-height:48px;display:flex;align-items:center;font-weight:700;cursor:pointer}
+.settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;padding:4px 0 16px}
+.settings .wide{grid-column:1/-1}
+.f{display:flex;flex-direction:column;gap:6px;min-width:0}
+.f label{font-size:.82rem;font-weight:700;letter-spacing:.02em;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.f label output{font-variant-numeric:tabular-nums;color:var(--fg)}
+.f select{
+  background:var(--bg);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;min-height:46px;width:100%;
+}
+.hint{font-size:.85rem;color:var(--muted);margin:0}
+.warn{font-size:.9rem;margin:0;padding:10px 12px;border-radius:10px;border:1.5px solid var(--danger);color:var(--fg)}
+
+/* التبويبات */
+.tabs{display:grid;grid-template-columns:1fr 1fr;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+.tabs button{border:0;border-radius:0;background:transparent;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+
+/* المحرر */
+textarea#ed{
+  width:100%;min-height:52vh;resize:vertical;background:var(--surface);border:1.5px solid var(--line);
+  border-radius:12px;padding:14px;font-family:var(--font-read);font-size:var(--read-size);line-height:1.9;
+}
+.meta{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* القارئ */
+#text{
+  background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:16px;
+  font-family:var(--font-read);font-size:var(--read-size);line-height:2.1;
+}
+#text p{margin:0 0 1em}
+#text p:last-child{margin-bottom:0}
+.seg{cursor:pointer;border-radius:6px;padding:2px 0;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.seg:hover{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.seg.now{background:var(--now)}
+.seg.start{text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:3px;text-underline-offset:7px}
+
+/* شريط التحكم */
+.bar{
+  position:fixed;inset-inline:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);
+  padding-top:10px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.bar-in{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.status{min-height:1.5em;font-size:.9rem;color:var(--muted)}
+.status.err{color:var(--danger)}
+.pos{display:flex;flex-direction:column;gap:2px}
+.pos-top{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;font-weight:700;font-variant-numeric:tabular-nums}
+.pos-prev{font-size:.82rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+input[type="range"]{width:100%;accent-color:var(--accent);min-height:32px;margin:0}
+.ctrl{display:flex;gap:8px}
+.ctrl button{flex:1}
+.ctrl button.primary{flex:2}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <h1>قارئ هادئ</h1>
+    <p class="lead">الصق نصاً، اختر الجملة التي تبدأ منها، واستمع إليه بصوت رجالي هادئ.</p>
+  </div>
+
+  <details id="settings">
+    <summary>الصوت والإعدادات</summary>
+    <div class="settings">
+      <div class="f wide">
+        <label for="voice">الصوت</label>
+        <select id="voice"><option>جارٍ تحميل الأصوات...</option></select>
+        <div class="row">
+          <button type="button" id="preview" class="grow">تجربة الصوت</button>
+          <button type="button" id="calm" class="grow">الإعداد الهادئ</button>
+        </div>
+        <p class="hint">جرّب الأصوات المتاحة بالأذن واختر الرجالي منها، فالأصوات تختلف من جهاز لآخر. الأسماء المعلّمة "رجالي غالباً" مجرد تخمين من الاسم.</p>
+        <p class="warn" id="noAr" hidden>لم يجد جهازك صوتاً عربياً. على أندرويد: الإعدادات، ثم تحويل النص إلى كلام، ثم محرك Google، ثم تثبيت بيانات الصوت واختر العربية. بعدها أعد فتح الصفحة.</p>
+      </div>
+      <div class="f">
+        <label for="rate">السرعة <output id="rateV"></output></label>
+        <input id="rate" type="range" min="0.5" max="1.5" step="0.05">
+      </div>
+      <div class="f">
+        <label for="pitch">النبرة (أقل = أعمق) <output id="pitchV"></output></label>
+        <input id="pitch" type="range" min="0.5" max="1.5" step="0.05">
+      </div>
+      <div class="f">
+        <label for="gap">الوقفة بين الجمل</label>
+        <select id="gap">
+          <option value="0">بلا وقفة</option><option value="0.3">قصيرة</option><option value="0.6">متوسطة</option><option value="1">طويلة</option>
+        </select>
+      </div>
+      <div class="f">
+        <label for="size">حجم الخط</label>
+        <select id="size">
+          <option value="18">صغير</option><option value="22">متوسط</option><option value="26">كبير</option><option value="30">كبير جداً</option>
+        </select>
+      </div>
+    </div>
+  </details>
+
+  <div class="tabs" role="group" aria-label="العرض">
+    <button type="button" id="tabEdit" aria-pressed="true">النص</button>
+    <button type="button" id="tabRead" aria-pressed="false">القراءة</button>
+  </div>
+
+  <section id="editor">
+    <textarea id="ed" dir="auto" aria-label="النص المراد قراءته">القراءة بصوت عالٍ تساعد على التركيز وتثبيت المعلومات في الذاكرة. كثيرون يستمعون إلى النصوص أثناء المشي أو الطبخ أو التنقل، فيستفيدون من وقت كان سيضيع.
+
+يتيح لك هذا الموقع أن تلصق أي نص، ثم تختار الجملة التي تريد أن تبدأ منها. اضغط على أي جملة في صفحة القراءة لتعلّم نقطة البداية، أو حرّك المنزلق في الأسفل.
+
+بعد ذلك اضغط زر التشغيل، وسيقرأ الموقع النص بصوت هادئ مع تمييز الجملة الجاري قراءتها.</textarea>
+    <div class="meta" style="margin-top:8px"><span id="words">0 كلمة</span><span id="chars">0 حرف</span></div>
+    <div class="row" style="margin-top:12px">
+      <button type="button" id="paste">لصق</button>
+      <button type="button" id="clear">مسح</button>
+      <button type="button" id="prep" class="grow">تجهيز القراءة</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button type="button" id="fromCursor" class="primary grow">ابدأ القراءة من موضع المؤشر</button>
+    </div>
+    <p class="hint" style="margin-top:8px">ضع المؤشر داخل النص في المكان الذي تريد البدء منه ثم اضغط الزر الأخير.</p>
+    <div class="status" id="edStatus" role="status" aria-live="polite"></div>
+  </section>
+
+  <section id="reader" hidden>
+    <div id="text" aria-label="النص للقراءة"></div>
+  </section>
+</main>
+
+<div class="bar" id="bar" hidden>
+  <div class="bar-in">
+    <div class="status" id="status" role="status" aria-live="polite"></div>
+    <div class="pos">
+      <div class="pos-top"><span id="posLabel">تبدأ من الجملة 1 من 1</span></div>
+      <div class="pos-prev" id="posPrev" dir="auto"></div>
+      <input type="range" id="slider" min="0" max="0" value="0" step="1" aria-label="موضع بدء القراءة">
+    </div>
+    <div class="ctrl">
+      <button type="button" id="prev" disabled>السابق</button>
+      <button type="button" id="play" class="primary">تشغيل</button>
+      <button type="button" id="next" disabled>التالي</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var MAXSEG = 300;
+
+function breakLong(s, max){
+  var out = [], rest = s;
+  while(rest.length > max){
+    var cut = -1, seps = ['، ', ', ', '؛ ', '; ', ': ', ' '];
+    for(var k = 0; k < seps.length; k++){
+      var i = rest.lastIndexOf(seps[k], max);
+      if(i > max * 0.4){ cut = i + seps[k].length; break; }
+    }
+    if(cut < 0) cut = max;
+    out.push(rest.slice(0, cut));
+    rest = rest.slice(cut);
+  }
+  if(rest) out.push(rest);
+  return out;
+}
+
+function splitSegments(text){
+  text = text.replace(/\r\n?/g, '\n');
+  var segs = [], para = -1, lineRe = /[^\n]+/g, lm;
+  while((lm = lineRe.exec(text))){
+    var line = lm[0], base = lm.index, produced = false;
+    var sre = /[^\n]+?(?:[.!?؟…]+["'»”’)\]]*(?=\s|$)|$)\s*/g, sm;
+    while((sm = sre.exec(line))){
+      var raw = sm[0], cur = base + sm.index;
+      var pieces = breakLong(raw, MAXSEG);
+      for(var k = 0; k < pieces.length; k++){
+        var pc = pieces[k], t = pc.trim();
+        if(t){
+          if(!produced){ para++; produced = true; }
+          segs.push({ text: t, off: cur, end: cur + pc.length, para: para });
+        }
+        cur += pc.length;
+      }
+    }
+  }
+  return segs;
+}
+
+/*APP*/
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var synth = window.speechSynthesis;
+
+  var S = { voiceURI: '', rate: 0.85, pitch: 0.85, gap: 0.6, size: 22 };
+  try { Object.assign(S, JSON.parse(localStorage.getItem('qari-calm') || '{}')); } catch(e){}
+  function save(){ try { localStorage.setItem('qari-calm', JSON.stringify(S)); } catch(e){} }
+
+  var ed = $('ed'), host = $('text'), slider = $('slider');
+  var segs = [], spans = [], startIdx = 0, curChunk = null, lastText = null;
+  var state = 'idle', token = 0, keepRef = null, gapTimer = null;
+  var voices = [];
+  var MALE = /naayf|nayef|hamed|majed|maged|shakir|tarik|male|نايف|حامد|ماجد|شاكر/i;
+
+  /* ---------- واجهة ---------- */
+  function setStatus(msg, isErr){
+    ['status', 'edStatus'].forEach(function(id){
+      var el = $(id); el.textContent = msg || ''; el.className = 'status' + (isErr ? ' err' : '');
+    });
+  }
+  function setState(s){
+    state = s;
+    $('play').textContent = s === 'playing' ? 'إيقاف مؤقت' : s === 'paused' ? 'متابعة' : 'تشغيل';
+    $('prev').disabled = $('next').disabled = (s === 'idle');
+  }
+  function showView(v){
+    $('editor').hidden = v !== 'editor';
+    $('reader').hidden = v !== 'reader';
+    $('bar').hidden = v !== 'reader';
+    $('tabEdit').setAttribute('aria-pressed', String(v === 'editor'));
+    $('tabRead').setAttribute('aria-pressed', String(v === 'reader'));
+    document.body.classList.toggle('with-bar', v === 'reader');
+  }
+  function counts(){
+    var v = ed.value.trim();
+    $('words').textContent = (v ? v.split(/\s+/).length : 0) + ' كلمة';
+    $('chars').textContent = ed.value.length + ' حرف';
+  }
+  var smooth = function(){ return matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'; };
+
+  /* ---------- النص والجمل ---------- */
+  function prepare(){
+    var text = ed.value;
+    if(!text.trim()){ setStatus('اكتب نصاً أو الصقه أولاً.', true); return false; }
+    segs = splitSegments(text);
+    if(!segs.length){ setStatus('لم أجد جملاً قابلة للقراءة في هذا النص.', true); return false; }
+    if(text !== lastText) startIdx = 0;
+    lastText = text;
+    startIdx = Math.max(0, Math.min(startIdx, segs.length - 1));
+    setStatus('');
+    render();
+    return true;
+  }
+  function render(){
+    host.textContent = '';
+    var p = null, last = -1;
+    segs.forEach(function(s, i){
+      if(s.para !== last){ p = document.createElement('p'); p.dir = 'auto'; host.appendChild(p); last = s.para; }
+      var sp = document.createElement('span');
+      sp.className = 'seg'; sp.dataset.i = String(i); sp.textContent = s.text;
+      p.appendChild(sp); p.appendChild(document.createTextNode(' '));
+    });
+    spans = host.querySelectorAll('.seg');
+    slider.max = String(segs.length - 1);
+    slider.disabled = segs.length < 2;
+    setStart(startIdx, false);
+  }
+  function setStart(i, scroll){
+    startIdx = Math.max(0, Math.min(i, segs.length - 1));
+    host.querySelectorAll('.start').forEach(function(n){ n.classList.remove('start'); });
+    if(spans[startIdx]){
+      spans[startIdx].classList.add('start');
+      if(scroll) spans[startIdx].scrollIntoView({ block: 'center', behavior: smooth() });
+    }
+    slider.value = String(startIdx);
+    $('posLabel').textContent = 'تبدأ من الجملة ' + (startIdx + 1) + ' من ' + segs.length;
+    var t = segs[startIdx] ? segs[startIdx].text : '';
+    $('posPrev').textContent = t.length > 60 ? t.slice(0, 60) + '…' : t;
+  }
+  function clearNow(){ host.querySelectorAll('.now').forEach(function(n){ n.classList.remove('now'); }); }
+  function highlight(i){
+    clearNow();
+    if(spans[i]){
+      spans[i].classList.add('now');
+      spans[i].scrollIntoView({ block: 'center', behavior: smooth() });
+    }
+  }
+  function segIndexAt(pos){
+    var idx = 0;
+    for(var i = 0; i < segs.length; i++){ if(segs[i].off <= pos) idx = i; else break; }
+    return idx;
+  }
+
+  /* ---------- الأصوات ---------- */
+  function currentVoice(){
+    for(var i = 0; i < voices.length; i++) if(voices[i].voiceURI === S.voiceURI) return voices[i];
+    return null;
+  }
+  function loadVoices(){
+    if(!synth) return;
+    var all = synth.getVoices() || [];
+    if(!all.length) return;
+    voices = all.slice().sort(function(a, b){
+      var x = /^ar/i.test(a.lang) ? 0 : 1, y = /^ar/i.test(b.lang) ? 0 : 1;
+      return (x - y) || a.name.localeCompare(b.name);
+    });
+    var sel = $('voice'); sel.textContent = '';
+    voices.forEach(function(v){
+      var o = document.createElement('option');
+      o.value = v.voiceURI;
+      o.textContent = v.name + ' (' + v.lang + ')' + (MALE.test(v.name) ? ' — رجالي غالباً' : '');
+      sel.appendChild(o);
+    });
+    var hasAr = voices.some(function(v){ return /^ar/i.test(v.lang); });
+    $('noAr').hidden = hasAr;
+    if(!currentVoice()){
+      var pick = null;
+      voices.forEach(function(v){ if(!pick && /^ar/i.test(v.lang) && MALE.test(v.name)) pick = v; });
+      voices.forEach(function(v){ if(!pick && /^ar/i.test(v.lang)) pick = v; });
+      if(!pick) pick = voices[0];
+      S.voiceURI = pick.voiceURI;
+    }
+    sel.value = S.voiceURI;
+  }
+  function makeUtterance(text){
+    var u = new SpeechSynthesisUtterance(text);
+    var v = currentVoice();
+    if(v){ u.voice = v; u.lang = v.lang; }
+    else if(/[؀-ۿ]/.test(text)) u.lang = 'ar-SA';
+    u.rate = S.rate; u.pitch = S.pitch; u.volume = 1;
+    keepRef = u;
+    return u;
+  }
+
+  /* ---------- التشغيل ---------- */
+  function stopAll(){
+    token++;
+    clearTimeout(gapTimer);
+    if(synth) synth.cancel();
+  }
+  function finish(){
+    setState('idle'); curChunk = null; clearNow(); setStatus('انتهت القراءة.');
+  }
+  function run(i, my){
+    if(my !== token) return;
+    if(i >= segs.length){ finish(); return; }
+    curChunk = { start: i, end: i + 1 };
+    highlight(i);
+    setState('playing'); setStatus('');
+    var u = makeUtterance(segs[i].text);
+    u.onend = function(){
+      if(my !== token) return;
+      if(S.gap > 0) gapTimer = setTimeout(function(){ run(i + 1, my); }, S.gap * 1000);
+      else run(i + 1, my);
+    };
+    u.onerror = function(e){
+      if(my !== token) return;
+      if(e.error === 'canceled' || e.error === 'interrupted') return;
+      token++; setState('idle');
+      setStatus('تعذر تشغيل الصوت (' + e.error + '). جرّب صوتاً آخر من الإعدادات.', true);
+    };
+    synth.speak(u);
+  }
+  function playFrom(i){
+    if(!synth){ setStatus('متصفحك لا يدعم القراءة الصوتية.', true); return; }
+    stopAll();
+    var my = token;
+    setStart(i, false);
+    setState('playing');
+    setTimeout(function(){ run(i, my); }, 80);
+  }
+  function stopPlayback(){ stopAll(); setState('idle'); clearNow(); curChunk = null; setStatus(''); }
+  function togglePlay(){
+    if(state === 'idle') playFrom(startIdx);
+    else if(state === 'playing'){
+      stopAll(); setState('paused');
+      setStatus('متوقف. تعود المتابعة إلى بداية الجملة الحالية.');
+    } else if(state === 'paused'){
+      playFrom(curChunk ? curChunk.start : startIdx);
+    }
+  }
+
+  /* ---------- ربط الأحداث ---------- */
+  function startFromCursor(){
+    var pos = ed.selectionStart || 0;
+    if(!prepare()) return;
+    var idx = segIndexAt(pos);
+    showView('reader');
+    setStart(idx, true);
+    playFrom(idx);
+  }
+  host.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('.seg') : null;
+    if(!t) return;
+    var i = +t.dataset.i;
+    if(state === 'idle'){ setStart(i, false); setStatus('ستبدأ القراءة من هنا. اضغط تشغيل.'); }
+    else playFrom(i);
+  });
+  slider.addEventListener('input', function(){ setStart(+slider.value, true); });
+  slider.addEventListener('change', function(){ if(state === 'playing' || state === 'paused') playFrom(+slider.value); });
+  $('play').addEventListener('click', togglePlay);
+  $('next').addEventListener('click', function(){
+    var i = curChunk ? curChunk.end : startIdx + 1;
+    if(i >= segs.length) stopPlayback(); else playFrom(i);
+  });
+  $('prev').addEventListener('click', function(){
+    playFrom(Math.max(0, (curChunk ? curChunk.start : startIdx) - 1));
+  });
+  $('tabEdit').addEventListener('click', function(){ stopPlayback(); showView('editor'); });
+  $('tabRead').addEventListener('click', function(){ if(prepare()) showView('reader'); });
+  $('prep').addEventListener('click', function(){ if(prepare()) showView('reader'); });
+  $('fromCursor').addEventListener('click', startFromCursor);
+  $('clear').addEventListener('click', function(){ ed.value = ''; counts(); ed.focus(); });
+  $('paste').addEventListener('click', function(){
+    if(!navigator.clipboard || !navigator.clipboard.readText){
+      setStatus('اللصق التلقائي غير متاح هنا. اضغط مطولاً داخل المربع والصق.', true); ed.focus(); return;
+    }
+    navigator.clipboard.readText().then(function(t){ if(t){ ed.value = t; counts(); ed.setSelectionRange(0, 0); setStatus(''); } })
+      .catch(function(){ ed.focus(); });
+  });
+  ed.addEventListener('input', counts);
+
+  /* ---------- الإعدادات ---------- */
+  function syncControls(){
+    $('rate').value = String(S.rate); $('rateV').textContent = S.rate.toFixed(2) + '×';
+    $('pitch').value = String(S.pitch); $('pitchV').textContent = S.pitch.toFixed(2);
+    $('gap').value = String(S.gap); $('size').value = String(S.size);
+    document.documentElement.style.setProperty('--read-size', S.size + 'px');
+  }
+  $('voice').addEventListener('change', function(e){ S.voiceURI = e.target.value; save(); });
+  $('rate').addEventListener('input', function(e){ S.rate = +e.target.value; $('rateV').textContent = S.rate.toFixed(2) + '×'; save(); });
+  $('pitch').addEventListener('input', function(e){ S.pitch = +e.target.value; $('pitchV').textContent = S.pitch.toFixed(2); save(); });
+  $('gap').addEventListener('change', function(e){ S.gap = +e.target.value; save(); });
+  $('size').addEventListener('change', function(e){ S.size = +e.target.value; save(); syncControls(); });
+  $('calm').addEventListener('click', function(){ S.rate = 0.85; S.pitch = 0.85; S.gap = 0.6; save(); syncControls(); setStatus('تم ضبط الإعداد الهادئ.'); });
+  $('preview').addEventListener('click', function(){
+    if(!synth){ setStatus('متصفحك لا يدعم القراءة الصوتية.', true); return; }
+    stopPlayback();
+    var u = makeUtterance('السلام عليكم، هذا صوت هادئ للقراءة.');
+    setTimeout(function(){ synth.speak(u); }, 80);
+  });
+
+  if(!synth){
+    setStatus('متصفحك لا يدعم القراءة الصوتية. جرّب Chrome أو Safari.', true);
+  } else {
+    loadVoices();
+    if(synth.addEventListener) synth.addEventListener('voiceschanged', loadVoices);
+    else synth.onvoiceschanged = loadVoices;
+    setTimeout(loadVoices, 600);
+  }
+  syncControls();
+  counts();
+  showView('editor');
+})();
+</script>
+</body>
+</html>
